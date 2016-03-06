@@ -39,6 +39,8 @@ cbuffer ConstBufferCS_Per_Frame : register( b0 )
 
     float g_GravityMagnitude;
     float g_TimeStep;
+    float g_tcv1;
+    float g_tcv2;
 
     float g_Damping0;
     float g_StiffnessForLocalShapeMatching0;
@@ -285,7 +287,7 @@ float4 Integrate(float4 curPosition, float4 oldPosition, float4 initialPos, floa
     float4 outputPos = curPosition;
 
     force.xyz += g_GravityMagnitude * float3(0, -1.0f, 0);
-    outputPos.xyz = curPosition.xyz + (1.0 - dampingCoeff)*(curPosition.xyz - oldPosition.xyz) + force.xyz*g_TimeStep*g_TimeStep;
+    outputPos.xyz = curPosition.xyz + (1.0 - dampingCoeff)*(curPosition.xyz - oldPosition.xyz)*g_tcv1 + force.xyz*g_tcv2;
 
     return outputPos;
 }
@@ -726,8 +728,6 @@ void LengthConstriantsWindAndCollision(uint GIndex : SV_GroupIndex,
     if ( g_Wind.x != 0 || g_Wind.y != 0 || g_Wind.z != 0 )
     {
         float4 force = float4(0, 0, 0, 0);
-
-        float frame = g_Wind.w;
 
         if ( localVertexIndex >= 2 && localVertexIndex < numVerticesInTheStrand-1 )
         {

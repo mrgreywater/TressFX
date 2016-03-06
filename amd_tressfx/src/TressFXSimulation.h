@@ -63,13 +63,14 @@ public:
                             DirectX::XMMATRIX *pModelTransformForHead);
     void OnDestroy(bool destroyShaders);
     TressFXMesh*                m_pTressFXMesh;
-    float                       m_elapsedTimeSinceLastSim;
 
 private:
     bool                        m_bGuideFollowHairPrev;
+    float                       m_lastElapsedTime;
+    float                       m_totalElapsedTime;
 
     // hair simulation params
-    TressFX_SimulationParams m_simParams;
+    TressFX_SimulationParams    m_simParams;
 
     // Compute Shader
     //data for compute shaders
