@@ -595,7 +595,11 @@ void CSceneRender::CreateRenderStateObjects( ID3D11Device* pd3dDevice )
     DSDesc.BackFace.StencilFunc         = D3D11_COMPARISON_ALWAYS;
     DSDesc.DepthEnable                  = TRUE;
     DSDesc.StencilEnable                = FALSE;
+#ifndef TRESSFX_INVERTED_DEPTH
     DSDesc.DepthFunc                    = D3D11_COMPARISON_LESS_EQUAL;
+#else
+    DSDesc.DepthFunc                    = D3D11_COMPARISON_GREATER_EQUAL;
+#endif
     DSDesc.DepthWriteMask               = D3D11_DEPTH_WRITE_MASK_ALL;
     hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthTestEnabledDSS);
 
@@ -804,7 +808,11 @@ void CSceneRender::GenerateShadowMap(TressFX_Desc & desc)
     D3D11_VIEWPORT viewportSMScene = {0, 0, SM_SCENE_WIDTH, SM_SCENE_HEIGHT, 0.0f, 1.0f};
     pd3dContext->RSSetViewports( 1, &viewportSMScene );
     // clear depth for early z
-    pd3dContext->ClearDepthStencilView(m_pSMSceneDSV, D3D11_CLEAR_DEPTH|D3D10_CLEAR_STENCIL, 1.0, 0);
+#ifndef TRESSFX_INVERTED_DEPTH
+    pd3dContext->ClearDepthStencilView(m_pSMSceneDSV, D3D11_CLEAR_DEPTH|D3D10_CLEAR_STENCIL, 1.0f, 0);
+#else
+    pd3dContext->ClearDepthStencilView(m_pSMSceneDSV, D3D11_CLEAR_DEPTH|D3D10_CLEAR_STENCIL, 0.0f, 0);
+#endif
     // make suure the scene shadow map texture is unbound
     ID3D11ShaderResourceView *pNull = NULL;
     pd3dContext->PSSetShaderResources(IDSRV_SCENESM, 1, &pNull);
@@ -1120,7 +1128,11 @@ void CSceneRender::RenderScene(TressFX_Desc & desc, bool shadow)
         RenderScreenQuad(pd3dContext, m_pVSScreenQuad, m_pVerticalBlurPS);
         // restore the render target
         pd3dContext->OMSetRenderTargets(1, &pRTV, pDSV);
-        pd3dContext->ClearDepthStencilView( pDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
+#ifndef TRESSFX_INVERTED_DEPTH
+        pd3dContext->ClearDepthStencilView(pDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
+#else
+        pd3dContext->ClearDepthStencilView(pDSV, D3D11_CLEAR_DEPTH, 0.0f, 0);
+#endif
         // restore the samplers
         pd3dContext->PSSetSamplers( 0, 1, &m_pSamplerStateLinearWrap );
         pd3dContext->PSSetSamplers( 1, 1, &m_pSamplerStatePointClamp );

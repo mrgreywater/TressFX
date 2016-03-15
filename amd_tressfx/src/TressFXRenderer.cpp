@@ -325,10 +325,17 @@ HRESULT TressFXRenderer::CreateRenderStateObjects(ID3D11Device* pd3dDevice)
 {
     HRESULT hr;
 
+    D3D11_COMPARISON_FUNC depthFunc;
+#ifndef TRESSFX_INVERTED_DEPTH
+    depthFunc = D3D11_COMPARISON_LESS_EQUAL;
+#else
+    depthFunc = D3D11_COMPARISON_GREATER_EQUAL;
+#endif
+
     // Create depth stencil states
     D3D11_DEPTH_STENCIL_DESC DSDesc;
     DSDesc.DepthEnable                  = TRUE;
-    DSDesc.DepthFunc                    = D3D11_COMPARISON_LESS_EQUAL;
+    DSDesc.DepthFunc                    = depthFunc;
     DSDesc.DepthWriteMask               = D3D11_DEPTH_WRITE_MASK_ALL;
     DSDesc.StencilEnable                = FALSE;
     DSDesc.StencilReadMask              = 0xff;
@@ -344,7 +351,7 @@ HRESULT TressFXRenderer::CreateRenderStateObjects(ID3D11Device* pd3dDevice)
     AMD_V_RETURN(pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthTestEnabledDSS));
 
     DSDesc.DepthEnable                  = TRUE;
-    DSDesc.DepthFunc                    = D3D11_COMPARISON_LESS_EQUAL;
+    DSDesc.DepthFunc                    = depthFunc;
     DSDesc.DepthWriteMask               = D3D11_DEPTH_WRITE_MASK_ZERO;
     DSDesc.StencilEnable                = TRUE;
     DSDesc.StencilReadMask              = 0xFF;
@@ -360,7 +367,7 @@ HRESULT TressFXRenderer::CreateRenderStateObjects(ID3D11Device* pd3dDevice)
     AMD_V_RETURN(hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthTestEnabledNoDepthWritesStencilWriteIncrementDSS));
 
     DSDesc.DepthEnable                  = FALSE;
-    DSDesc.DepthFunc                    = D3D11_COMPARISON_LESS_EQUAL;
+    DSDesc.DepthFunc                    = depthFunc;
     DSDesc.DepthWriteMask               = D3D11_DEPTH_WRITE_MASK_ZERO;
     DSDesc.StencilEnable                = TRUE;
     DSDesc.StencilReadMask              = 0xFF;
@@ -852,7 +859,11 @@ void TressFXRenderer::GenerateShadowMap(ID3D11DeviceContext* pd3dContext, float 
     D3D11_VIEWPORT viewportSMHair = {0, 0, SM_HAIR_WIDTH, SM_HAIR_HEIGHT, 0.0f, 1.0f};
     pd3dContext->RSSetViewports( 1, &viewportSMHair );
     // clear depth for early z
-    pd3dContext->ClearDepthStencilView(m_pSMHairDSV, D3D11_CLEAR_DEPTH|D3D10_CLEAR_STENCIL, 1.0, 0);
+#ifndef TRESSFX_INVERTED_DEPTH
+    pd3dContext->ClearDepthStencilView(m_pSMHairDSV, D3D11_CLEAR_DEPTH | D3D10_CLEAR_STENCIL, 1.0f, 0);
+#else
+    pd3dContext->ClearDepthStencilView(m_pSMHairDSV, D3D11_CLEAR_DEPTH | D3D10_CLEAR_STENCIL, 0.0f, 0);
+#endif
     // set render target to shadow map texture
     pd3dContext->OMSetRenderTargets(0, 0, m_pSMHairDSV);
     RenderHairGeometry(pd3dContext, m_pVSGenerateHairSM, NULL, density);

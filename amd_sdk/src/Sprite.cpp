@@ -360,7 +360,11 @@ HRESULT Sprite::OnCreateDevice( ID3D11Device* pd3dDevice )
     D3D11_DEPTH_STENCIL_DESC DepthStencilDesc;
     DepthStencilDesc.DepthEnable = FALSE;
     DepthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+#ifndef TRESSFX_INVERTED_DEPTH
     DepthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+#else
+    DepthStencilDesc.DepthFunc = D3D11_COMPARISON_GREATER;
+#endif
     DepthStencilDesc.StencilEnable = FALSE;
     DepthStencilDesc.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
     DepthStencilDesc.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;

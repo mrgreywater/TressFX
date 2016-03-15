@@ -1117,7 +1117,7 @@ static TressFX_SimulationParams* GetCurrentSimulationParams()
 static int GetSelectedSectionIndex()
 {
     int selectedIndex = g_SimulationHUD.m_GUI.GetComboBox(IDC_COMBOBOX_HAIR_SECTION)->GetSelectedIndex();
-    
+
     if ( selectedIndex < 0 )
     {
         selectedIndex = 0;
@@ -1919,7 +1919,11 @@ HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapCha
 
     // Setup the camera's projection parameters
     float fAspectRatio = pBackBufferSurfaceDesc->Width / (FLOAT)pBackBufferSurfaceDesc->Height;
+#ifndef TRESSFX_INVERTED_DEPTH
     g_Camera.SetProjParams(FIELD_OF_VIEW, fAspectRatio, g_nearPlane, g_farPlane);
+#else
+    g_Camera.SetProjParams(FIELD_OF_VIEW, fAspectRatio, g_farPlane, g_nearPlane);
+#endif
     g_Camera.SetWindow(pBackBufferSurfaceDesc->Width, pBackBufferSurfaceDesc->Height);
     g_Camera.SetButtonMasks(NULL, MOUSE_WHEEL, MOUSE_LEFT_BUTTON );
 
@@ -1983,7 +1987,12 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
     ID3D11RenderTargetView* pPrimaryRTV = DXUTGetD3D11RenderTargetView();
     ID3D11DepthStencilView* pPrimaryDSV = DXUTGetD3D11DepthStencilView();
     pd3dImmediateContext->ClearRenderTargetView( pPrimaryRTV, ClearColor );
+
+#ifndef TRESSFX_INVERTED_DEPTH
     pd3dImmediateContext->ClearDepthStencilView( pPrimaryDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
+#else
+    pd3dImmediateContext->ClearDepthStencilView( pPrimaryDSV, D3D11_CLEAR_DEPTH, 0.0f, 0 );
+#endif
 
     DemoModel *pModel = &g_DemoModel;
 

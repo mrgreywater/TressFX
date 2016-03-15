@@ -31,6 +31,7 @@
 //      Defines for TressFX rendering
 //
 //--------------------------------------------------------------------------------------
+#define TRESSFX_INVERTED_DEPTH
 #define PI 3.1415926
 #define e 2.71828183
 #define FLOAT_EPSILON 1e-7
@@ -944,7 +945,12 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 #endif
 
         int id = 0;
+#ifndef TRESSFX_INVERTED_DEPTH
         float max_depth = 0;
+#else
+        float max_depth = 1;
+#endif
+        
 
         // find the furthest node in array
         [unroll]for(int i=0; i<KBUFFER_SIZE; i++)
@@ -954,7 +960,11 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 #else
             float fDepth = asfloat(kBuffer[i].depthTangentColor.x);
 #endif
+#ifndef TRESSFX_INVERTED_DEPTH
             if(max_depth < fDepth)
+#else
+            if(max_depth > fDepth)
+#endif
             {
                 max_depth = fDepth;
                 id = i;
@@ -968,7 +978,11 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 
         // If the node in the linked list is nearer than the furthest one in the local array, exchange the node
         // in the local array for the one in the linked list.
+#ifndef TRESSFX_INVERTED_DEPTH
         if (max_depth > fNodeDepth)
+#else
+        if (max_depth < fNodeDepth)
+#endif
         {
 #ifdef ALU_INDEXING
             uint tmp                                = GetUintFromIndex_Size16(kBufferDepthV03, kBufferDepthV47, kBufferDepthV811, kBufferDepthV1215, id);
@@ -1025,7 +1039,13 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
     for(int j=0; j<KBUFFER_SIZE; j++)
     {
         int id = 0;
+		
+#ifndef TRESSFX_INVERTED_DEPTH
         float max_depth = 0;
+#else
+        float max_depth = 1;
+#endif
+
         float initialized = 1;
 
         // find the furthest node in the array
@@ -1036,7 +1056,11 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 #else
             float fDepth = asfloat(kBuffer[i].depthTangentColor.x);
 #endif
+#ifndef TRESSFX_INVERTED_DEPTH
             if(max_depth < fDepth)
+#else
+            if(max_depth > fDepth)
+#endif
             {
                 max_depth = fDepth;
                 id = i;
