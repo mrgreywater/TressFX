@@ -229,12 +229,12 @@ public:
     BBox(const Float3 &p) : pMin(p), pMax(p) { }
     BBox(const Float3 &p1, const Float3 &p2)
     {
-        pMin = Float3(min(p1.x, p2.x),
-                      min(p1.y, p2.y),
-                      min(p1.z, p2.z));
-        pMax = Float3(max(p1.x, p2.x),
-                      max(p1.y, p2.y),
-                      max(p1.z, p2.z));
+        pMin = Float3((std::min)(p1.x, p2.x),
+                      (std::min)(p1.y, p2.y),
+                      (std::min)(p1.z, p2.z));
+        pMax = Float3((std::max)(p1.x, p2.x),
+                      (std::max)(p1.y, p2.y),
+                      (std::max)(p1.z, p2.z));
     }
 
     bool Overlaps(const BBox &b) const
@@ -339,7 +339,7 @@ public:
             }
             else
             {
-                currentBlock = (char *)AllocAligned(max(sz, blockSize));
+                currentBlock = (char *)AllocAligned((std::max)(sz, blockSize));
             }
             curBlockPos = 0;
         }
