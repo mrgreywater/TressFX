@@ -101,6 +101,8 @@ private:
     // Render States
     ID3D11DepthStencilState     *m_pDepthTestEnabledDSS;
     ID3D11DepthStencilState     *m_pDepthTestEnabledNoDepthWritesStencilWriteIncrementDSS;
+    ID3D11DepthStencilState     *m_pDepthInvTestEnabledDSS;
+    ID3D11DepthStencilState     *m_pDepthInvTestEnabledNoDepthWritesStencilWriteIncrementDSS;
     ID3D11DepthStencilState     *m_pDepthTestDisabledStencilTestLessDSS;
     ID3D11SamplerState          *m_pSamplerStateLinearWrap;
     ID3D11SamplerState          *m_pSamplerStatePointClamp;
@@ -109,6 +111,8 @@ private:
     ID3D11BlendState            *m_pColorWritesOff;
 
     TressFXShortCut              m_ShortCut;
+
+    bool                        m_bInverseDepth;
 
 public:
     // hair rendering params
@@ -144,7 +148,7 @@ private:
     void RenderScreenQuad(ID3D11DeviceContext* pd3dContext,
                     ID3D11VertexShader* pVS, ID3D11PixelShader* pPS);
 public:
-    TressFXRenderer(void) {};
+    TressFXRenderer(void) : m_bInverseDepth(false) {};
     ~TressFXRenderer(void) {};
 
     ID3D11ShaderResourceView* GetShadowMapSRV() { return m_pSMHairSRV;};

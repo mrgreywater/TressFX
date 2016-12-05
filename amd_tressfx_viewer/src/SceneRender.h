@@ -112,7 +112,9 @@ private:
 
     // Render States
     ID3D11DepthStencilState     *m_pDepthTestEnabledDSS;
+    ID3D11DepthStencilState     *m_pDepthInvTestEnabledDSS;
     ID3D11DepthStencilState     *m_pDepthTestEnabledNoWriteDSS;
+    ID3D11DepthStencilState     *m_pDepthInvTestEnabledNoWriteDSS;
     ID3D11DepthStencilState     *m_pDepthStencilDisableState;
     ID3D11SamplerState          *m_pSamplerStateLinearWrap;
     ID3D11SamplerState          *m_pSamplerStatePointClamp;
@@ -126,6 +128,7 @@ private:
     // animation status flag based on skinning animation file existence
     bool m_bAnimation;
 
+    bool m_bInverseDepth;
 public:
     unsigned                    m_numMeshes;            // number of meshes in the model
     unsigned*                   m_pMeshIndexCount;      // number of vertices in each mesh
@@ -150,13 +153,13 @@ private:
 
     void SetBoneMatrices(ID3D11DeviceContext* pd3dImmediateContext, UINT iMesh );
     void RenderSceneGeometry(AMD::TressFX_Desc & desc,
-                    ID3D11VertexShader* pVS, ID3D11PixelShader* pPS);
+                    ID3D11VertexShader* pVS, ID3D11PixelShader* pPS, bool bInverseDepth = false);
 
     void RenderScreenQuad(ID3D11DeviceContext* pd3dContext,
                     ID3D11VertexShader* pVS, ID3D11PixelShader* pPS);
 
 public:
-    CSceneRender(void) : m_bAnimation(false) {};
+    CSceneRender(void) : m_bAnimation(false), m_bInverseDepth(false) {};
     ~CSceneRender(void) {};
 
     void OnCreateDevice(ID3D11Device* pd3dDevice, const WCHAR *bodyFile, const WCHAR *animationFile, AMD::ShaderCache *pShaderCache, bool createShaders);

@@ -44,3 +44,6 @@ UpgradeLog*.htm
 # Shader cache
 [Bb]in/Shaders/Cache/
 HashDigest.html
+
+/amd_lib/lib/*.lib
+/amd_sdk/lib/*.lib

@@ -85,7 +85,8 @@ struct CB_PER_FRAME
     int         m_mNumVerticesPerStrand;
     int         m_mNumFollowHairsPerGuideHair;
     int         m_bSingleHeadTransform;
-    int         padding0;
+    float       m_bDepthInverter;
+    //int         padding[4];
 };
 
 // Optional SRVs
@@ -360,6 +361,38 @@ HRESULT TressFXRenderer::CreateRenderStateObjects(ID3D11Device* pd3dDevice)
     DSDesc.BackFace.StencilPassOp       = D3D11_STENCIL_OP_INCR_SAT;
     DSDesc.BackFace.StencilFunc         = D3D11_COMPARISON_ALWAYS;
     AMD_V_RETURN(hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthTestEnabledNoDepthWritesStencilWriteIncrementDSS));
+
+    DSDesc.DepthEnable = TRUE;
+    DSDesc.DepthFunc = D3D11_COMPARISON_GREATER_EQUAL;
+    DSDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    DSDesc.StencilEnable = FALSE;
+    DSDesc.StencilReadMask = 0xff;
+    DSDesc.StencilWriteMask = 0xff;
+    DSDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    DSDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    AMD_V_RETURN(pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthInvTestEnabledDSS));
+
+    DSDesc.DepthEnable = TRUE;
+    DSDesc.DepthFunc = D3D11_COMPARISON_GREATER_EQUAL;
+    DSDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    DSDesc.StencilEnable = TRUE;
+    DSDesc.StencilReadMask = 0xFF;
+    DSDesc.StencilWriteMask = 0xFF;
+    DSDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_INCR_SAT;
+    DSDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    DSDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_INCR_SAT;
+    DSDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    AMD_V_RETURN(hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthInvTestEnabledNoDepthWritesStencilWriteIncrementDSS));
 
     DSDesc.DepthEnable                  = FALSE;
     DSDesc.DepthFunc                    = D3D11_COMPARISON_LESS_EQUAL;
@@ -660,10 +693,13 @@ void TressFXRenderer::BeginHairFrame(ID3D11DeviceContext* pd3dContext,
     D3D11_MAPPED_SUBRESOURCE MappedResource;
     pd3dContext->Map( m_pcbPerFrame, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource );
     CB_PER_FRAME* pcbPerFrame = ( CB_PER_FRAME* )MappedResource.pData;
-
+    
     // camera parameters
     XMMATRIX mViewProj = *pViewProj;
-    XMMATRIX mInvViewProj = XMMatrixInverse(0, mViewProj);
+    DirectX::XMVECTOR det;
+    XMMATRIX mInvViewProj = XMMatrixInverse(&det, mViewProj);
+    m_bInverseDepth = DirectX::XMVectorGetX(det) < .0f;
+    pcbPerFrame->m_bDepthInverter = m_bInverseDepth ? -1.f : 1.f;
 
     float fRenderWidth =  screenWidth;
     float fRenderHeight = screenHeight;
@@ -934,7 +970,7 @@ void TressFXRenderer::RenderHair(ID3D11DeviceContext* pd3dContext)
     pd3dContext->OMSetBlendState(m_pColorWritesOff, 0, 0xffffffff);
 
     // Enable depth test to use early z, disable depth write to make sure required layers won't be clipped out in early z
-    pd3dContext->OMSetDepthStencilState(m_pDepthTestEnabledNoDepthWritesStencilWriteIncrementDSS, 0x00);
+    pd3dContext->OMSetDepthStencilState(m_bInverseDepth ? m_pDepthInvTestEnabledNoDepthWritesStencilWriteIncrementDSS : m_pDepthTestEnabledNoDepthWritesStencilWriteIncrementDSS, 0x00);
 
     // Pass 1: A-Buffer pass
     if (m_hairParams.bAntialias)
@@ -976,7 +1012,7 @@ void TressFXRenderer::RenderHair(ID3D11DeviceContext* pd3dContext)
     pd3dContext->PSSetShaderResources(IDSRV_HEAD_PPLL, 1, &pNULL);
     pd3dContext->PSSetShaderResources(IDSRV_PPLL, 1, &pNULL);
 
-    pd3dContext->OMSetDepthStencilState(m_pDepthTestEnabledDSS, 0x00);
+    pd3dContext->OMSetDepthStencilState(m_bInverseDepth ? m_pDepthInvTestEnabledDSS : m_pDepthTestEnabledDSS, 0x00);
     pd3dContext->OMSetRenderTargets(1, &pRTV, pDSV);
     pd3dContext->OMSetBlendState(NULL, 0, 0xffffffff);
     AMD_SAFE_RELEASE( pRTV );
@@ -1054,7 +1090,7 @@ void TressFXRenderer::RenderHairShortcut(ID3D11DeviceContext* pd3dContext)
 
     m_ShortCut.PostResolveColor(pd3dContext);
 
-    pd3dContext->OMSetDepthStencilState(m_pDepthTestEnabledDSS, 0x00);
+    pd3dContext->OMSetDepthStencilState(m_bInverseDepth ? m_pDepthInvTestEnabledDSS : m_pDepthTestEnabledDSS, 0x00);
     pd3dContext->OMSetRenderTargets(1, &pRTV, pDSV);
     pd3dContext->OMSetBlendState(NULL, 0, 0xffffffff);
     AMD_SAFE_RELEASE(pRTV);
@@ -1131,6 +1167,8 @@ void TressFXRenderer::OnDestroy(bool destroyShaders)
     AMD_SAFE_RELEASE(m_pColorWritesOff );
     AMD_SAFE_RELEASE( m_pDepthTestEnabledDSS );
     AMD_SAFE_RELEASE( m_pDepthTestEnabledNoDepthWritesStencilWriteIncrementDSS );
+    AMD_SAFE_RELEASE(m_pDepthInvTestEnabledDSS);
+    AMD_SAFE_RELEASE(m_pDepthInvTestEnabledNoDepthWritesStencilWriteIncrementDSS);
     AMD_SAFE_RELEASE( m_pDepthTestDisabledStencilTestLessDSS );
     AMD_SAFE_RELEASE(m_pSamplerStateLinearWrap );
     AMD_SAFE_RELEASE(m_pSamplerStatePointClamp );

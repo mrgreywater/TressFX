@@ -599,7 +599,13 @@ void CSceneRender::CreateRenderStateObjects( ID3D11Device* pd3dDevice )
     DSDesc.DepthWriteMask               = D3D11_DEPTH_WRITE_MASK_ALL;
     hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthTestEnabledDSS);
 
+    DSDesc.DepthFunc                    = D3D11_COMPARISON_GREATER_EQUAL;
+    hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthInvTestEnabledDSS);
+
     DSDesc.DepthWriteMask               = D3D11_DEPTH_WRITE_MASK_ZERO;
+    hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthInvTestEnabledNoWriteDSS);
+    
+    DSDesc.DepthFunc                    = D3D11_COMPARISON_LESS_EQUAL;
     hr = pd3dDevice->CreateDepthStencilState(&DSDesc, &m_pDepthTestEnabledNoWriteDSS);
 
     DSDesc.DepthEnable                  = FALSE;
@@ -921,6 +927,8 @@ void CSceneRender::UpdateSceneCB(TressFX_Desc & desc)
         ::MessageBoxA(0, "Fail to map constant buffer frame", "d3d error", 0);
     }
 
+    m_bInverseDepth = DirectX::XMVectorGetX(DirectX::XMMatrixDeterminant(desc.mViewProj)) < .0f;
+
     CB_PER_FRAME_SCENE* pcbPerFrame = ( CB_PER_FRAME_SCENE* )MappedResource.pData;
     pcbPerFrame->m_mWorld = XMMatrixTranspose(desc.modelTransformForHead);
     pcbPerFrame->m_mViewProj = XMMatrixTranspose(desc.mViewProj);
@@ -943,7 +951,7 @@ void CSceneRender::UpdateSceneCB(TressFX_Desc & desc)
 // Renders the scene geometry.
 //
 //--------------------------------------------------------------------------------------
-void CSceneRender::RenderSceneGeometry(TressFX_Desc & desc, ID3D11VertexShader* pVS, ID3D11PixelShader* pPS)
+void CSceneRender::RenderSceneGeometry(TressFX_Desc & desc, ID3D11VertexShader* pVS, ID3D11PixelShader* pPS, bool bInverseDepth)
 {
     HRESULT hr;
     ID3D11Buffer* pBuffers[1];
@@ -992,7 +1000,7 @@ void CSceneRender::RenderSceneGeometry(TressFX_Desc & desc, ID3D11VertexShader* 
         pd3dContext->PSSetSamplers( 0, 1, &m_pLinearClampSampler );
 
         // enable the depth test
-        pd3dContext->OMSetDepthStencilState(m_pDepthTestEnabledDSS, 0);
+        pd3dContext->OMSetDepthStencilState(bInverseDepth ? m_pDepthInvTestEnabledDSS : m_pDepthTestEnabledDSS, 0);
 
         // Set materials
         SDKMESH_SUBSET* pSubset = NULL;
@@ -1120,7 +1128,7 @@ void CSceneRender::RenderScene(TressFX_Desc & desc, bool shadow)
         RenderScreenQuad(pd3dContext, m_pVSScreenQuad, m_pVerticalBlurPS);
         // restore the render target
         pd3dContext->OMSetRenderTargets(1, &pRTV, pDSV);
-        pd3dContext->ClearDepthStencilView( pDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
+        pd3dContext->ClearDepthStencilView( pDSV, D3D11_CLEAR_DEPTH, m_bInverseDepth ? 0.0f : 1.0f, 0 );
         // restore the samplers
         pd3dContext->PSSetSamplers( 0, 1, &m_pSamplerStateLinearWrap );
         pd3dContext->PSSetSamplers( 1, 1, &m_pSamplerStatePointClamp );
@@ -1136,11 +1144,11 @@ void CSceneRender::RenderScene(TressFX_Desc & desc, bool shadow)
     pd3dContext->RSSetState( m_pRasterizerStateScene );
     if (m_bAnimation)
     {
-        RenderSceneGeometry(desc, m_pVSSkinning, m_pPSRenderScene);
+        RenderSceneGeometry(desc, m_pVSSkinning, m_pPSRenderScene, m_bInverseDepth);
     }
     else
     {
-        RenderSceneGeometry(desc, m_pVSScene, m_pPSRenderScene);
+        RenderSceneGeometry(desc, m_pVSScene, m_pPSRenderScene, m_bInverseDepth);
     }
     pd3dContext->RSSetState( pRSTemp );
     pRSTemp->Release();
@@ -1224,6 +1232,8 @@ void CSceneRender::OnDestroy(bool destroyShaders)
     SAFE_RELEASE(m_pRasterizerStateScene);
     SAFE_RELEASE( m_pDepthTestEnabledDSS );
     SAFE_RELEASE( m_pDepthTestEnabledNoWriteDSS );
+    SAFE_RELEASE( m_pDepthInvTestEnabledDSS );
+    SAFE_RELEASE( m_pDepthInvTestEnabledNoWriteDSS );
     SAFE_RELEASE( m_pDepthStencilDisableState );
     SAFE_RELEASE(m_pSamplerStateLinearWrap );
     SAFE_RELEASE(m_pSamplerStatePointClamp );

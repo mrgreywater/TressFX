@@ -153,6 +153,8 @@ bool g_bShowControls = false;
 // toggle whether to advance time in the animation.
 bool g_bAdvanceTime = true;
 
+bool g_bInverseDepth = false;
+
 
 static COLORREF g_vCustHairColors[16] =
 {
@@ -698,6 +700,10 @@ void RenderText()
     swprintf_s( wcbuf, 256, L"  RenderHair      (ms): %.3f", movingAverage.renderHair );
     g_pTxtHelper->DrawTextLine( wcbuf );
 
+    if (g_bInverseDepth) {
+        g_pTxtHelper->DrawTextLine(L"Inverse depth enabled");
+    }
+
     if (++g_frameCount >= AVERAGE_FRAME_COUNT)
     {
         g_frameCount = 0;
@@ -710,6 +716,7 @@ void RenderText()
         g_pTxtHelper->DrawTextLine( L"Rotate Camera   : Left Mouse Button" );
         g_pTxtHelper->DrawTextLine( L"Translate Model : Middle Mouse Button" );
         g_pTxtHelper->DrawTextLine( L"Rotate Model    : Ctrl + Middle Mouse Button" );
+        g_pTxtHelper->DrawTextLine( L"Inverse Depth   : F5" );
         g_pTxtHelper->SetForegroundColor( XMVectorSet( 1.0f, 1.0f, 0.0f, 1.0f ) );
     }
 
@@ -989,6 +996,11 @@ void CALLBACK OnKeyboard( UINT nChar, bool bKeyDown, bool bAltDown, void* pUserC
         {
         case VK_F1:
             g_bShowUI = !g_bShowUI;
+            break;
+        case VK_F5:
+            g_bInverseDepth = !g_bInverseDepth;
+            std::swap(g_nearPlane, g_farPlane);
+            g_Camera.SetProjParams(FIELD_OF_VIEW, g_Camera.GetAspect(), g_nearPlane, g_farPlane);
             break;
         case VK_F4:
             g_bShowControls = !g_bShowControls;
@@ -1990,7 +2002,7 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
     ID3D11RenderTargetView* pPrimaryRTV = DXUTGetD3D11RenderTargetView();
     ID3D11DepthStencilView* pPrimaryDSV = DXUTGetD3D11DepthStencilView();
     pd3dImmediateContext->ClearRenderTargetView( pPrimaryRTV, ClearColor );
-    pd3dImmediateContext->ClearDepthStencilView( pPrimaryDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
+    pd3dImmediateContext->ClearDepthStencilView( pPrimaryDSV, D3D11_CLEAR_DEPTH, g_bInverseDepth ? 0.0f : 1.0f, 0 );
 
     DemoModel *pModel = &g_DemoModel;
 

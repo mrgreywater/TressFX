@@ -146,6 +146,7 @@ cbuffer cbPerFrame : register( b1 )
     int         g_NumVerticesPerStrand          : packoffset( c31.x );
     int         g_NumFollowHairsPerGuideHair    : packoffset( c31.y );
     int         g_bSingleHeadTransform          : packoffset( c31.z );
+    float       g_bDepthInverter                : packoffset( c31.w );
 };
 
 // Bit fields for optional SRVs
@@ -933,6 +934,9 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 
     // get the start of the linked list from the head pointer
     uint pointer = LinkedListHeadSRV[In.vPosition.xy];
+        
+    float nearDepth = g_bDepthInverter < 0.0f ? 1.#INF : 0.0f;
+    float farDepth = g_bDepthInverter < 0.0f ? 0.0f : 100000.0f;
 
     // A local Array to store the top k fragments(depth and color), where k = KBUFFER_SIZE
 #ifdef ALU_INDEXING
@@ -940,18 +944,9 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
     uint4 kBufferDepthV03, kBufferDepthV47, kBufferDepthV811, kBufferDepthV1215;
     uint4 kBufferPackedTangentV03, kBufferPackedTangentV47, kBufferPackedTangentV811, kBufferPackedTangentV1215;
     uint4 kBufferStrandColorV03, kBufferStrandColorV47, kBufferStrandColorV811, kBufferStrandColorV1215;
-    kBufferDepthV03 = uint4(asuint(100000.0f), asuint(100000.0f), asuint(100000.0f), asuint(100000.0f));
-    kBufferDepthV47 = uint4(asuint(100000.0f), asuint(100000.0f), asuint(100000.0f), asuint(100000.0f));
-    kBufferDepthV811 = uint4(asuint(100000.0f), asuint(100000.0f), asuint(100000.0f), asuint(100000.0f));
-    kBufferDepthV1215 = uint4(asuint(100000.0f), asuint(100000.0f), asuint(100000.0f), asuint(100000.0f));
-    kBufferPackedTangentV03 = uint4(0,0,0,0);
-    kBufferPackedTangentV47 = uint4(0,0,0,0);
-    kBufferPackedTangentV811 = uint4(0,0,0,0);
-    kBufferPackedTangentV1215 = uint4(0,0,0,0);
-    kBufferStrandColorV03 = uint4(0,0,0,0);
-    kBufferStrandColorV47 = uint4(0,0,0,0);
-    kBufferStrandColorV811 = uint4(0,0,0,0);
-    kBufferStrandColorV1215 = uint4(0,0,0,0);
+    kBufferDepthV03 = kBufferDepthV47 = kBufferDepthV811 = kBufferDepthV1215 = asuint(farDepth).xxxx;
+    kBufferPackedTangentV03 = kBufferPackedTangentV47 = kBufferPackedTangentV811 = kBufferPackedTangentV1215 = uint4(0, 0, 0, 0);
+    kBufferStrandColorV03 = kBufferStrandColorV47 = kBufferStrandColorV811 = kBufferStrandColorV1215 = uint4(0, 0, 0, 0);
 
     // Get the first k elements in the linked list
     int nNumFragments = 0;
@@ -1009,7 +1004,7 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 #endif
 
         int id = 0;
-        float max_depth = 0;
+        float max_depth = nearDepth;
 
         // find the furthest node in array
         [unroll]for(int i=0; i<KBUFFER_SIZE; i++)
@@ -1019,7 +1014,7 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 #else
             float fDepth = asfloat(kBuffer[i].depthTangentColor.x);
 #endif
-            if(max_depth < fDepth)
+            if (g_bDepthInverter * (max_depth - fDepth) < 0)
             {
                 max_depth = fDepth;
                 id = i;
@@ -1033,7 +1028,7 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 
         // If the node in the linked list is nearer than the furthest one in the local array, exchange the node
         // in the local array for the one in the linked list.
-        if (max_depth > fNodeDepth)
+        if (g_bDepthInverter * (max_depth - fNodeDepth) > 0)
         {
 #ifdef ALU_INDEXING
             uint tmp                                = GetUintFromIndex_Size16(kBufferDepthV03, kBufferDepthV47, kBufferDepthV811, kBufferDepthV1215, id);
@@ -1090,7 +1085,7 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
     for(int j=0; j<KBUFFER_SIZE; j++)
     {
         int id = 0;
-        float max_depth = 0;
+        float max_depth = nearDepth;
         float initialized = 1;
 
         // find the furthest node in the array
@@ -1101,7 +1096,7 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
 #else
             float fDepth = asfloat(kBuffer[i].depthTangentColor.x);
 #endif
-            if(max_depth < fDepth)
+            if (g_bDepthInverter * (max_depth - fDepth) < 0)
             {
                 max_depth = fDepth;
                 id = i;
@@ -1115,7 +1110,7 @@ float4 PS_KBuffer_Hair(VS_OUTPUT_SCREENQUAD In): SV_Target
         uint strandColor       = GetUintFromIndex_Size16(kBufferStrandColorV03, kBufferStrandColorV47, kBufferStrandColorV811, kBufferStrandColorV1215, id);
 
         // take this node out of the next search
-        StoreUintAtIndex_Size16(kBufferDepthV03, kBufferDepthV47, kBufferDepthV811, kBufferDepthV1215, id, 0);
+        StoreUintAtIndex_Size16(kBufferDepthV03, kBufferDepthV47, kBufferDepthV811, kBufferDepthV1215, id, asuint(nearDepth));
 #else
         uint nodePackedTangent = kBuffer[id].depthTangentColor.y;
         uint nodeDepth         = kBuffer[id].depthTangentColor.x;
